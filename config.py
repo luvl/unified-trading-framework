@@ -1,5 +1,5 @@
 import typing
-from typing import List
+from typing import Tuple
 
 import datetime
 
@@ -12,6 +12,7 @@ class DefaultMacro(typing.NamedTuple):
     SELL: int = -1
     REWARD_STD: float = 0.006
     TRAIN_W_VALIDATION: bool = False
+    SEED: int = 17061996
 
 class TrainConfig(typing.NamedTuple):
     epochs: int = 3 # 100
@@ -56,3 +57,13 @@ class HyperparamConfig(typing.NamedTuple):
     batch_size: int = 64
     tar_mod_up: float = 0.001
     delta_clip: int = 1
+
+def init_config() -> Tuple[EnvConfig, TrainConfig, TestConfig, ValConfig, HyperparamConfig, DefaultMacro]:
+    env_config = EnvConfig()
+    tra_config = TrainConfig()
+    tes_config = TestConfig()
+    val_config = ValConfig()
+    par_config = HyperparamConfig()
+    default_macro = DefaultMacro()
+
+    return env_config, tra_config, tes_config, val_config, par_config, default_macro

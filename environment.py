@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np 
-np.random.seed(17061996)
+
 np.set_printoptions(precision=8, suppress=True)
 
 import gym
@@ -14,7 +14,6 @@ from lib.visualization import plot_profit, plot_actions, plot_train_rewards
 import math
 import os
 import random
-random.seed(17061996)
 
 from sklearn.cluster import KMeans
 
@@ -27,6 +26,9 @@ class DirectReinforcement(gym.Env):
                 setattr(self, _field, getattr(cfg, _field))
         for arg in args:
             init_cfg(arg)
+
+        np.random.seed(self.SEED)
+        random.seed(self.SEED)
 
         data = np.load(self.train_data, allow_pickle=True)
         self.price_data = data[:,0]

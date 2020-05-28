@@ -60,6 +60,7 @@ def prep_data(remake: bool) -> DataConfig:
     test_index = 2500
 
     def _sentiment_transformer(text_df: pd.DataFrame) -> List[int]:
+        print('Starting sentiment-analysis...')
         nlp = pipeline('sentiment-analysis')
         length = len(text_df['en_text'])
         dummy = []
@@ -75,6 +76,7 @@ def prep_data(remake: bool) -> DataConfig:
                     dummy.append(0)
             else:
                 dummy.append(0)
+        print('Completing sentiment-analysis...')
         return dummy
 
     def _load_data() -> pd.DataFrame:
