@@ -8,15 +8,19 @@ date = str(now.day) + "." + str(now.month) + "_" + str(now.hour) + ":" + str(now
 
 class DefaultMacro(typing.NamedTuple):
     BUY: int = 1
-    NEUTRAL: int = 0
+    HOLD: int = 0
     SELL: int = -1
     REWARD_STD: float = 0.006
     TRAIN_W_VALIDATION: bool = False
     SEED: int = 17061996
+    INIT_NO_OF_SHARES: int = 1000000
+    AMOUNT: int = 0.05
+    TRANSACTION_FEE: int = 0.002
+    SELL_TRANSACTION_TAX: int = 0.001
 
 class TrainConfig(typing.NamedTuple):
     epochs: int = 3 # 100
-    steps: int = 500 # 500
+    steps: int = 500 # 500 # max steps until end
     window_length: int = 100
     mem_size: int = 10000 # 100000
     nodes: int = 16
