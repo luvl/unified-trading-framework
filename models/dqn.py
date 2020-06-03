@@ -21,7 +21,7 @@ from rl.policy import LinearAnnealedPolicy, EpsGreedyQPolicy
 from environment import DirectReinforcement
 
 
-def init_dqn(env: DirectReinforcement) -> None:
+def init_dqn(env: DirectReinforcement) -> str:
     tf.keras.backend.clear_session()
     tf.random.set_seed(env.SEED)
 
@@ -58,6 +58,9 @@ def init_dqn(env: DirectReinforcement) -> None:
     else:
         train(env, dqn)
 
+    backtest_filepath = test(env, dqn)
+
+    return backtest_filepath
 
 def get_available_cpus() -> List:
     local_device_protos = device_lib.list_local_devices()
@@ -103,6 +106,7 @@ def train(env: DirectReinforcement, dqn) -> None:
 
     env._plot_actions()
     env._calculate_pnl(env_name=env.env_name)
+    env._calculate_roc()
     np.save(env.folder + '/memory.npy', env.memory)
     env._plot_train_rewards()
     with open(env.folder + '/train_rewards.out', "w") as text_file:
@@ -171,7 +175,7 @@ def train_w_validation(env, dqn):
 
         env.validation = False
 
-def test(env: DirectReinforcement, dqn: DQNAgent) -> None:
+def test(env: DirectReinforcement, dqn: DQNAgent) -> str:
     cpu_devices = get_available_cpus()
     with tf.device(cpu_devices[1]):
         env.testing = True
@@ -183,13 +187,15 @@ def test(env: DirectReinforcement, dqn: DQNAgent) -> None:
                 visualize=False
             )
 
-            env._calculate_pnl(env_name=env.env_name)
-
             if not os.path.exists(env.test_folder + '/memory_' + str(env.test_starts_index) + '.npy'):
               np.save(env.test_folder + '/memory_' + str(env.test_starts_index) + '.npy', env.memory)
               
             env._plot_actions()
+            env._calculate_roc()
+            backtest_filepath = env._calculate_pnl(env_name=env.env_name)
+
         describe_stats(env, env.test_steps)
+    return backtest_filepath
 
 def describe_stats(env: DirectReinforcement, steps: int) -> None:
     longs = len(env.long_actions)

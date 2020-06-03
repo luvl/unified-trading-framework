@@ -52,7 +52,7 @@ def prep_data(remake: bool) -> DataConfig:
     train_path = data_directory + '/train' + '/train_data.npy'
     test_path = data_directory + '/test' + '/test_data.npy'
     val_path = data_directory + '/val' + '/validation_data.npy'
-    feature = ['Close', 'sentiment', 'vn_embedding', 'Report_EPS', 'Datetime']
+    feature = ['Close', 'sentiment', 'vn_embedding', 'Report_EPS', 'Datetime', 'Label']
 
     start_date = '2009-12-31'
     end_date = '2020-04-21'
@@ -79,11 +79,39 @@ def prep_data(remake: bool) -> DataConfig:
         print('Completing sentiment-analysis...')
         return dummy
 
+    def _create_label(csv_location: str) -> None:
+        df = pd.read_csv(csv_location)
+        if 'Label' not in df.columns:
+            dat = df['Close'].values
+            true_label = [0]*len(dat)
+
+            tolerance = 0.0001
+            for i in range(len(dat)):
+                if i == 0 or i == len(dat)-1:
+                    true_label[i] = "hold"
+                else:
+                    val_t = dat[i]
+                    val_t_1 = dat[i+1]
+                    upper_bound = val_t + tolerance*val_t
+                    lower_bound = val_t - tolerance*val_t
+
+                    if upper_bound < val_t_1:
+                        true_label[i] = "buy"
+                    elif lower_bound > val_t_1:
+                        true_label[i] = "sell"
+                    else:
+                        true_label[i] = "hold"
+            df['Label'] = true_label
+            df.to_csv(csv_location, index=None)
+        else:
+            print('Label exists, skipping create label process')
+
     def _load_data() -> pd.DataFrame:
         print('Preparing train data, test data and validation data...')
 
-        vnm_df = pd.read_csv(stock_data, delimiter=";", encoding='utf-8')
-        vnm_df.columns = ['Ticker', 'Datetime', 'Close', 'Volume']
+        _create_label(stock_data)
+        vnm_df = pd.read_csv(stock_data, delimiter=",", encoding='utf-8')
+        vnm_df.columns = ['Ticker', 'Datetime', 'Close', 'Volume', 'Label']
         vnm_df['Datetime'] = pd.to_datetime(vnm_df.Datetime, format='%Y%m%d')
 
         news_df = pd.read_json(news_data, encoding='utf-8')
@@ -149,7 +177,7 @@ def prep_data(remake: bool) -> DataConfig:
             df.at[row, 'vn_embedding'] = [0]*n_component # update this number here
         df['vn_embedding'] = [np.array(elem, dtype=np.float32) for elem in df['vn_embedding']]
 
-        df['Close'] = pd.to_numeric(df['Close'].apply(lambda x:  x.replace(',','.'))) # convert close price string to float64
+        # df['Close'] = pd.to_numeric(df['Close'].apply(lambda x:  x.replace(',','.'))) # convert close price string to float64
         df.drop(['title', 'text', 'en_text'], axis=1, inplace=True) # check this line when embedding
 
         # code for colab training
@@ -260,8 +288,9 @@ def prep_data(remake: bool) -> DataConfig:
         print('Shape of pca tfidf_vectorization: {}'.format(tfidf_vectorization.shape))
         n_component = tfidf_vectorization.shape[1]
         #####
-
+        print("Completing news-embedding...")
         df['vn_embedding'] = [elem for elem in tfidf_vectorization] # careful
+
 
         return df, n_component
 

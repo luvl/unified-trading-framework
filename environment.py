@@ -9,7 +9,8 @@ import pandas as pd
 import gym
 import typing
 
-from lib.visualization import plot_profit, plot_actions, plot_train_rewards
+from lib.visualization import plot_profit, plot_actions, plot_train_rewards, visualize_heatmap_cf
+from lib.metric import roc_auc
 
 import math
 import os
@@ -39,7 +40,7 @@ class DirectReinforcement(gym.Env):
         self.news_sentiment = data[:,1]
         self.news_embeddding = data[:,2]
         self.eps_data = data[:,3]
-        self.date = data[:,4]
+        self.label = data[:,5]
 
         self.scaling_factor = {
             'return_std': np.std(self.price_data[1:]-self.price_data[:-1]),
@@ -84,54 +85,63 @@ class DirectReinforcement(gym.Env):
         Return: new state, reward and whether the data is done
         """
         c_val = self.price_data[self.position]
+        self.y.append(self.label[self.position])
 
         if action == 2: # sell / short:
             self.action = self.SELL
             self.short_actions.append([self.position, c_val])
-
-            share2sell_amount = int(self.shares_held * self.AMOUNT)
-            transaction_value = share2sell_amount*c_val
-            transaction_cost = self.TRANSACTION_FEE*transaction_value
-            transaction_tax = self.SELL_TRANSACTION_TAX*transaction_value
-            self.balance = self.balance + transaction_value - transaction_cost - transaction_tax
-            self.shares_held -= share2sell_amount
-            self.total_shares_sold += share2sell_amount
-            self.total_sales_value += share2sell_amount * c_val
-            if share2sell_amount > 0:
-                self.trades_backtest.append({
-                    'step': self.position,
+            self.y_hat.append("sell")
+            if self.testing:
+                share2sell_amount = int(self.shares_held * self.AMOUNT)
+                transaction_value = share2sell_amount*c_val
+                transaction_cost = self.TRANSACTION_FEE*transaction_value
+                transaction_tax = self.SELL_TRANSACTION_TAX*transaction_value
+                self.balance = self.balance + transaction_value - transaction_cost - transaction_tax
+                self.shares_held -= share2sell_amount
+                self.total_shares_sold += share2sell_amount
+                self.total_sales_value += share2sell_amount * c_val
+                # if share2sell_amount > 0:
+                self.trades_backtest = {
                     'shares': share2sell_amount, 
                     'transaction_value': transaction_value,
                     'type': "sell"
-                })
+                }
 
         elif action == 1 : # buy / long
             self.action = self.BUY
             self.long_actions.append([self.position, c_val])
-
-            share2buy_amount = int(int(self.balance / c_val) * self.AMOUNT)
-            transaction_value = share2buy_amount*c_val
-            transaction_cost = self.TRANSACTION_FEE*transaction_value
-            self.balance = self.balance - transaction_value - transaction_cost
-            self.shares_held += share2buy_amount
-            self.prime_cost += transaction_value/self.shares_held
-            if share2buy_amount > 0:
-                self.trades_backtest.append({
-                    'step': self.position,
+            self.y_hat.append("buy")
+            if self.testing:
+                share2buy_amount = int(int(self.balance / c_val) * self.AMOUNT)
+                transaction_value = share2buy_amount*c_val
+                transaction_cost = self.TRANSACTION_FEE*transaction_value
+                self.balance = self.balance - transaction_value - transaction_cost
+                self.shares_held += share2buy_amount
+                self.prime_cost += transaction_value/self.shares_held
+                # if share2buy_amount > 0:
+                self.trades_backtest = {
                     'shares': share2buy_amount, 
                     'transaction_value': transaction_value,
                     'type': "buy"
-                })
-
+                }
         else:
             self.action = self.HOLD
+            self.y_hat.append("hold")
+            if self.testing:
+                self.trades_backtest = {
+                    'shares': 0,
+                    'transaction_value': 0,
+                    'type': "hold"
+                }
 
-        self.net_worth = self.balance + self.shares_held * c_val
-        if self.net_worth > self.max_net_worth:
-            self.max_net_worth = self.net_worth
-        if self.net_worth < self.min_net_worth:
-            self.min_net_worth = self.net_worth
-        self._render_backtest()
+        if self.testing:
+            self.net_worth = self.balance + self.shares_held * c_val
+            self.LT_ACCOUNT_BALANCE = self.price_data[self.position]*self.INIT_NO_OF_SHARES 
+            if self.net_worth > self.max_net_worth:
+                self.max_net_worth = self.net_worth
+            if self.net_worth < self.min_net_worth:
+                self.min_net_worth = self.net_worth
+            self._render_backtest()
 
         if (self.position+1) < self.data_size:
             state = [self.position, c_val, self.action]
@@ -157,14 +167,31 @@ class DirectReinforcement(gym.Env):
             self.news_embeddding = data[:,2]
             self.eps_data = data[:,3]
             self.date = data[:,4]
+            self.label = data[:,5]
             self.test_position = np.random.randint(self.window + 1, self.data_size - self.test_steps - 1, self.test_epochs)
             self.position = self.test_position[self.test_starts_index]
+            self.test_end_position = self.test_position + self.test_steps
             self.test_starts_index += 1
             self.test_folder = self.folder + '/Test_' + str(self.test_starts_index)
             if not os.path.exists(self.test_folder):
                 os.makedirs(self.test_folder)
 
-            
+            self.INITIAL_ACCOUNT_BALANCE = self.price_data[self.position]*self.INIT_NO_OF_SHARES
+            print("Initial account balance:", self.INITIAL_ACCOUNT_BALANCE)
+            self.LT_ACCOUNT_BALANCE = self.price_data[self.position]*self.INIT_NO_OF_SHARES 
+
+            self.balance = self.INITIAL_ACCOUNT_BALANCE
+            self.net_worth = self.INITIAL_ACCOUNT_BALANCE
+            self.shares_held = self.INIT_NO_OF_SHARES
+            self.prime_cost = 0
+            self.total_shares_sold = 0
+            self.total_sales_value = 0
+            self.trades_backtest = {}
+            self.max_net_worth = self.INITIAL_ACCOUNT_BALANCE
+            self.min_net_worth = self.INITIAL_ACCOUNT_BALANCE
+            self.render_storage = []
+            self.render_df_filepath = None
+
         elif self.validation:
             data = np.load(self.val_data, allow_pickle=True)
             self.price_data = data[:,0]
@@ -173,7 +200,7 @@ class DirectReinforcement(gym.Env):
             self.news_sentiment = data[:,1]
             self.news_embeddding = data[:,2]
             self.eps_data = data[:,3]
-            self.date = data[:,4]
+            self.label = data[:,5]
             self.val_position = np.random.randint(self.window + 1, self.data_size - self.val_steps - 1, size=self.val_epochs)
             self.position = self.val_position[self.val_starts_index]
             self.val_starts_index += 1
@@ -181,7 +208,6 @@ class DirectReinforcement(gym.Env):
             begin_idx = self.window + 1
             end_idx = self.data_size - self.steps - 1
             self.position = random.randint(begin_idx, end_idx)
-            self.end_position = self.position + self.steps
 
         self.memory = []
         self.long_actions = []
@@ -196,22 +222,9 @@ class DirectReinforcement(gym.Env):
         self.buy_flag = False
         self.sell_flag = False
         self.done = False
+        self.y = []
+        self.y_hat = []
         self.observation = self._next_observation_input()
-
-        self.INITIAL_ACCOUNT_BALANCE = self.price_data[self.position]*self.INIT_NO_OF_SHARES
-        print("Initial account balance:", self.INITIAL_ACCOUNT_BALANCE) 
-
-        self.balance = self.INITIAL_ACCOUNT_BALANCE
-        self.net_worth = self.INITIAL_ACCOUNT_BALANCE
-        self.shares_held = self.INIT_NO_OF_SHARES
-        self.prime_cost = 0
-        self.total_shares_sold = 0
-        self.total_sales_value = 0
-        self.trades_backtest = []
-        self.max_net_worth = self.INITIAL_ACCOUNT_BALANCE
-        self.min_net_worth = self.INITIAL_ACCOUNT_BALANCE
-        self.render_storage = []
-        self.visualization = None
 
         return self.observation
 
@@ -220,8 +233,20 @@ class DirectReinforcement(gym.Env):
         Gym function render the environment to the screen
         """
         self._calculate_pnl(env_name=self.env_name, save=False)
+        self._calculate_roc()
         self.reset()
         return None
+
+    def _calculate_roc(self):
+        """
+        Calculate the ROC/AUC score based on the action of the agent
+        """
+        if self.testing:
+            visualize_heatmap_cf(self.y, self.y_hat, save_location=self.test_folder)
+        else:
+            visualize_heatmap_cf(self.y, self.y_hat, save_location=self.folder)
+        print('Area under the curve: {:0.5f}'.format(roc_auc(self.y, self.y_hat)))
+
 
     def _calculate_pnl(self, env_name, save=True):
         """
@@ -250,6 +275,9 @@ class DirectReinforcement(gym.Env):
         pnls += "Test reward: " + str(self.epoch_reward) + "\n"
 
         print(pnls)
+
+        if self.testing:
+            return self.render_df_filepath
 
         if save:
             if self.testing:
@@ -396,24 +424,31 @@ class DirectReinforcement(gym.Env):
         plot_train_rewards(self.folder, self.rewards)
 
     def _render_backtest(self, filename='render.txt'):
-        profit = self.net_worth - self.INITIAL_ACCOUNT_BALANCE
+        if self.testing:
+            profit = self.net_worth - self.INITIAL_ACCOUNT_BALANCE
+            long_term_profit = self.net_worth - self.LT_ACCOUNT_BALANCE
+            c_val = self.price_data[self.position]
+            date = self.date[self.position]
+            self.render_storage.append([
+                self.position, self.balance, self.shares_held, 
+                self.total_shares_sold, self.prime_cost, self.total_sales_value, 
+                self.net_worth, self.max_net_worth, self.min_net_worth, 
+                profit, date, self.trades_backtest, c_val, long_term_profit
+            ])
 
-        self.render_storage.append([
-            self.position, self.balance, self.shares_held, 
-            self.total_shares_sold, self.prime_cost, self.total_sales_value, 
-            self.net_worth, self.max_net_worth, self.min_net_worth, profit
-        ])
-
-        if self.position == self.end_position-1:
-            dummy_df = pd.DataFrame(
-                self.render_storage, 
-                columns=[
-                    "Step", "Balance", "Shares_held",
-                    "Total_sold", "Prime_cost", "Total_sales",
-                    "net_worth", "Max_net_worth", "Min_net_worth", "Profit"
-                ]
-            )
-            idx = self.end_position - self.steps
-            dummy_df.to_csv(self.folder+'/position_'+str(idx)+'_render.csv')
+            if self.position == self.test_end_position-1:
+                dummy_df = pd.DataFrame(
+                    self.render_storage, 
+                    columns=[
+                        "Step", "Balance", "Shares_held",
+                        "Total_sold", "Prime_cost", "Total_sales",
+                        "Net_worth", "Max_net_worth", "Min_net_worth", 
+                        "Profit", "Date", "Trades", "Close", "LT_profit"
+                    ]
+                )
+                idx = self.test_end_position - self.test_steps
+                dummy_df.to_csv(self.test_folder+'/position_'+str(idx)+'_render.csv', index=False) # may delete this, use csv to inspect result faster
+                self.render_df_filepath = self.test_folder+'/position_'+str(idx)+'_render.pkl'
+                dummy_df.to_pickle(self.render_df_filepath)
 
 

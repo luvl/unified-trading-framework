@@ -7,13 +7,17 @@ import inspect
 from environment import DirectReinforcement
 from processdata import prep_data
 from config import init_config
+from lib.visualization import BacktestingVisualization
 
 def main():    
     dat_config = prep_data(remake=False)
     env = DirectReinforcement(dat_config, *init_config())
 
     from models.dqn import init_dqn
-    init_dqn(env)
+    render_file_location = init_dqn(env)
+
+    # render_file_location = "/home/linhdn/Developer/unified-framework-for-trading/log/3_s:500_w:100_3.6_14:39/Test_1/position_[243]_render.pkl"
+    backtest_viz = BacktestingVisualization(render_file_location).run()
 
     # for key, data in inspect.getmembers(env):
     #     print('{}: {!r}'.format(key, data))
@@ -21,4 +25,5 @@ def main():
 if __name__ == "__main__":
     main()
         
+
 

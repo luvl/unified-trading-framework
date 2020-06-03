@@ -7,6 +7,202 @@ import os
 from bokeh.plotting import figure, output_file, show, save, output_notebook
 from bokeh.layouts import column
 
+import numpy as np
+import pandas as pd
+
+import matplotlib.pyplot as plt
+from matplotlib import style
+style.use('seaborn-white')
+import seaborn as sns
+
+from sklearn import metrics
+
+class BacktestingVisualization:
+    def __init__(self, df_filepath, title='Backtest', mode='static', window_size=8):
+        self.folder = os.path.dirname(df_filepath)
+        self.df = pd.read_pickle(df_filepath)
+        self.mode = mode
+        self.title = title
+        self.window_size = window_size
+
+        fig = plt.figure(figsize=(16,8))
+        fig.suptitle(title)
+
+        self.price_ax = plt.subplot2grid(
+            (10, 1), (2, 0), rowspan=8, colspan=1
+        )
+        self.net_worth_ax = plt.subplot2grid(
+            (10, 1), (0, 0), rowspan=2, colspan=1, sharex=self.price_ax
+        )
+
+        plt.subplots_adjust(
+            left=0.11, bottom=0.24,
+            right=0.90, top=0.90, wspace=0.2, hspace=0
+        )
+
+    def run(self):
+        if self.mode == 'static':
+            net_worth = self.df['Net_worth']
+            dates = self.df['Date']
+            trades = self.df['Trades']
+            close_prices = self.df['Close']
+
+            self.net_worth_ax.plot_date(
+                dates,
+                net_worth,
+                '-',
+                label='Net Worth'
+            )
+            self.net_worth_ax.legend()
+            legend = self.net_worth_ax.legend(loc=2, ncol=2, prop={'size': 8})
+            legend.get_frame().set_alpha(0.4)
+
+            self.price_ax.plot_date(
+                dates,
+                close_prices,
+                '-',
+                label='Close price'
+            )
+
+            self.price_ax.legend()
+            legend = self.price_ax.legend(loc=2, ncol=2, prop={'size': 8})
+            legend.get_frame().set_alpha(0.4)
+
+            buy_legend = False
+            sell_legend = False
+
+            for i in range(len(trades)):
+                trade = trades.values[i]
+                date = dates.values[i]
+                close = close_prices.values[i]
+
+                if trade['type'] == 'buy':
+                    if not buy_legend: 
+                        self.price_ax.scatter(date, close, marker="v", c="#6666ee", cmap="#00FF00", alpha=1, linewidths=1, label='Buy')
+                        buy_legend = True
+                    else:
+                        self.price_ax.scatter(date, close, marker="v", c="#6666ee", cmap="#00FF00", alpha=1, linewidths=1)
+                elif trade['type'] == 'sell':
+                    if not sell_legend:
+                        self.price_ax.scatter(date, close, marker="^", c="#ee6666", cmap="#FF0000", alpha=1, linewidths=1, label='Sell')
+                        sell_legend = True
+                    else:
+                        self.price_ax.scatter(date, close, marker="^", c="#ee6666", cmap="#FF0000", alpha=1, linewidths=1)
+
+            self.price_ax.legend()
+            plt.setp(self.net_worth_ax.get_xticklabels(), visible=False)
+            if not os.path.exists(self.folder+'/'+self.title+'.png'):
+                plt.savefig(self.folder+'/'+self.title)
+
+
+        elif self.mode == 'live':
+            for i in range(self.window_size, len(self.df)-self.window_size):
+
+                net_worth = self.df['Net_worth'][i-self.window_size:i]
+                dates = self.df['Date'][i-self.window_size:i]
+                trades = self.df['Trades'][i-self.window_size:i]
+                close_prices = self.df['Close'][i-self.window_size:i]
+
+                self._render_net_worth(dates, net_worth)
+                self._render_price(dates, close_prices)
+                self._render_trade(trades, dates, close_prices)
+
+                self.net_worth_ax.legend()
+                legend = self.net_worth_ax.legend(loc=2, ncol=2, prop={'size': 8})
+                legend.get_frame().set_alpha(0.4)
+
+                last_date = dates.values[-1]
+                last_net_worth = net_worth.values[-1]
+
+                self.net_worth_ax.annotate(
+                    '{0:.2f}'.format(last_net_worth), 
+                    (last_date, last_net_worth),
+                    xytext=(last_date, last_net_worth),
+                    bbox=dict(boxstyle='round',fc='w', ec='k', lw=1),
+                    color="black",
+                    fontsize="small"
+                )
+
+                self.price_ax.set_xticklabels(
+                    dates, 
+                    rotation=45,
+                    horizontalalignment='right'
+                )
+
+                plt.setp(self.net_worth_ax.get_xticklabels(), visible=False)
+                plt.pause(0.01)
+
+        plt.ioff()
+        plt.show()
+
+    def _render_net_worth(self, dates, net_worth):
+        self.net_worth_ax.clear()
+        self.net_worth_ax.plot_date(
+            dates,
+            net_worth,
+            '-',
+            label='Net Worth'
+        )
+        self.net_worth_ax.legend()
+        legend = self.net_worth_ax.legend(loc=2, ncol=2, prop={'size': 8})
+        legend.get_frame().set_alpha(0.4)
+
+        last_date = dates.values[-1]
+        last_net_worth = net_worth.values[-1]
+
+        self.net_worth_ax.annotate(
+            '{0:.2f}'.format(last_net_worth), 
+            (last_date, last_net_worth),
+            xytext=(last_date, last_net_worth),
+            bbox=dict(boxstyle='round',fc='w', ec='k', lw=1),
+            color="black",
+            fontsize="small"
+        )
+
+    def _render_price(self, dates, close_prices):
+        self.price_ax.clear()
+
+        last_date = dates.values[-1]
+        last_close = close_prices.values[-1]
+
+        self.price_ax.plot_date(
+            dates,
+            close_prices,
+            '-',
+            label='Close price'
+        )
+
+        self.price_ax.legend()
+        legend = self.price_ax.legend(loc=2, ncol=2, prop={'size': 8})
+        legend.get_frame().set_alpha(0.4)
+
+        self.price_ax.annotate(
+            '{0:.2f}'.format(last_close), 
+            (last_date, last_close),
+            xytext=(last_date, last_close),
+            bbox=dict(boxstyle='round',fc='w', ec='k', lw=1),
+            color="black",
+            fontsize="small"
+        )
+
+
+    def _render_trade(self, trades, dates, close_prices):
+        for i in range(len(trades)):
+            trade = trades.values[i]
+            date = dates.values[i]
+            close = close_prices.values[i]
+
+            if trade['type'] == 'buy':
+                self.price_ax.scatter(date, close, marker="v", c="#6666ee", cmap="#00FF00", alpha=1, linewidths=5)
+            elif trade['type'] == 'sell':
+                self.price_ax.scatter(date, close, marker="^", c="#ee6666", cmap="#FF0000", alpha=1, linewidths=5)
+
+            tc = '{0:.2f}'.format(trade['transaction_value'])
+            self.price_ax.annotate(f'${tc}', (date, close),
+                                    xytext=(date, close),
+                                    fontsize=5,)
+
+
 def plot_profit(folder, profit, profit2, values, actions, title='profit_curve', save_only=True):
     """
     Plot the q values history of the agent
@@ -87,3 +283,16 @@ def plot_train_rewards(folder, rewards):
     print("Plotting train reward ...")
     show(p)
 
+def visualize_heatmap_cf(y, y_hat, save_location=None):
+    unique_labels = list(np.unique(y))
+    matrix = metrics.confusion_matrix(y, y_hat, labels=unique_labels)
+
+    fig, ax = plt.subplots()
+    tick_marks = np.arange(len(unique_labels))
+    sns.heatmap(pd.DataFrame(matrix, index=unique_labels, columns=unique_labels), annot=True, cmap="coolwarm" ,fmt='g')
+    ax.xaxis.set_label_position("top")
+    plt.tight_layout()
+    plt.title('Confusion matrix', y=1.1)
+    plt.ylabel('Actual label')
+    plt.xlabel('Predicted label')
+    plt.savefig(save_location+'/confusion_matrix')
