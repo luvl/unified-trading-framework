@@ -23,7 +23,6 @@ class DirectReinforcement(gym.Env):
 
     def __init__(self, *args, **kwargs):
         super(DirectReinforcement, self).__init__()
-
         def init_cfg(cfg):
             for _field in cfg._fields:
                 setattr(self, _field, getattr(cfg, _field))
@@ -36,25 +35,32 @@ class DirectReinforcement(gym.Env):
         data = np.load(self.train_data, allow_pickle=True)
         self.price_data = data[:,0]
         self.data_size = len(self.price_data)
-        self.return_std = np.std(self.price_data[1:]-self.price_data[:-1])
-        self.news_sentiment = data[:,1]
-        self.news_embeddding = data[:,2]
-        self.eps_data = data[:,3]
-        self.label = data[:,5]
-
-        self.scaling_factor = {
-            'return_std': np.std(self.price_data[1:]-self.price_data[:-1]),
-            'return_mean': np.mean(self.price_data[1:]-self.price_data[:-1]),
-            'eps_std': np.std([elem for elem in self.eps_data if elem != 0]),
-            'eps_mean': np.mean([elem for elem in self.eps_data if elem != 0]),
-        }
 
         input_shape = self.window
         input_shape *= self.no_of_cluster
-        input_shape += self.window * self.sentimental_feature
-        input_shape += self.window * self.eps_feature
-        if self.embedding_feature:
+
+        if self.WITH_EXTENDED_FEATURE:
+            self.news_sentiment = data[:,1]
+            self.news_embeddding = data[:,2]
+            self.eps_data = data[:,3]
+            self.scaling_factor = {
+                'return_std': np.std(self.price_data[1:]-self.price_data[:-1]),
+                'return_mean': np.mean(self.price_data[1:]-self.price_data[:-1]),
+                'eps_std': np.std([elem for elem in self.eps_data if elem != 0]),
+                'eps_mean': np.mean([elem for elem in self.eps_data if elem != 0]),
+            }
+
+            input_shape += self.window * self.sentimental_feature
             input_shape += self.embedding_feature_len
+            input_shape += self.window * self.eps_feature
+        else:
+            self.scaling_factor = {
+                'return_std': np.std(self.price_data[1:]-self.price_data[:-1]),
+                'return_mean': np.mean(self.price_data[1:]-self.price_data[:-1]),
+            }
+
+        self.label = data[:,5]
+
         if self.action_one_hot:
             input_shape += 3
         print("Input shape:", input_shape)
@@ -72,7 +78,6 @@ class DirectReinforcement(gym.Env):
         self.rewards = []
         self.epoch_reward = 0
         self.epoch_profit = []
-
         self.test_starts_index = 0
         self.val_starts_index = 0
 
@@ -162,10 +167,10 @@ class DirectReinforcement(gym.Env):
             data = np.load(self.test_data, allow_pickle=True)
             self.price_data = data[:,0]
             self.data_size = len(self.price_data)
-            self.return_std = np.std(self.price_data[1:]-self.price_data[:-1])
-            self.news_sentiment = data[:,1]
-            self.news_embeddding = data[:,2]
-            self.eps_data = data[:,3]
+            if self.WITH_EXTENDED_FEATURE:
+                self.news_sentiment = data[:,1]
+                self.news_embeddding = data[:,2]
+                self.eps_data = data[:,3]
             self.date = data[:,4]
             self.label = data[:,5]
             self.test_position = np.random.randint(self.window + 1, self.data_size - self.test_steps - 1, self.test_epochs)
@@ -196,10 +201,10 @@ class DirectReinforcement(gym.Env):
             data = np.load(self.val_data, allow_pickle=True)
             self.price_data = data[:,0]
             self.data_size = len(self.price_data)
-            self.return_std = np.std(self.price_data[1:]-self.price_data[:-1])
-            self.news_sentiment = data[:,1]
-            self.news_embeddding = data[:,2]
-            self.eps_data = data[:,3]
+            if self.WITH_EXTENDED_FEATURE:
+                self.news_sentiment = data[:,1]
+                self.news_embeddding = data[:,2]
+                self.eps_data = data[:,3]
             self.label = data[:,5]
             self.val_position = np.random.randint(self.window + 1, self.data_size - self.val_steps - 1, size=self.val_epochs)
             self.position = self.val_position[self.val_starts_index]
@@ -314,34 +319,39 @@ class DirectReinforcement(gym.Env):
         """
         Prepare input to the agent
         """
+
         z_returns = []
-        s_sentiments = []
-        e_eps = []
-
         idx = self.position
-        n_news_embedding = self.news_embeddding[idx]
 
+        if self.WITH_EXTENDED_FEATURE:
+            s_sentiments = []
+            e_eps = []
+            n_news_embedding = self.news_embeddding[idx]
+
+        
         for i in range(self.window):
             c_val = self.price_data[idx]
             pr_val = self.price_data[idx-1]
             z_return = ((c_val - pr_val) - self.scaling_factor['return_mean']) / self.scaling_factor['return_std']
             z_returns.append(z_return)
 
-            news = self.news_sentiment[idx]
-            s_sentiments.append(news)
-
-            eps = self.eps_data[idx]
-            if eps != 0:
-                eps = (self.eps_data[idx] - self.scaling_factor['eps_mean']) / self.scaling_factor['eps_std']
-            e_eps.append(eps)
+            if self.WITH_EXTENDED_FEATURE:
+                news = self.news_sentiment[idx]
+                s_sentiments.append(news)
+                eps = self.eps_data[idx]
+                if eps != 0:
+                    eps = (self.eps_data[idx] - self.scaling_factor['eps_mean']) / self.scaling_factor['eps_std']
+                e_eps.append(eps)
 
             idx -= 1
 
         obs = np.asarray(z_returns, dtype=np.float32)
         obs = self._fuzzy_representation(obs, self.no_of_cluster)
-        obs = np.append(obs, s_sentiments)
-        obs = np.append(obs, e_eps)
-        obs = np.append(obs, n_news_embedding)
+
+        if self.WITH_EXTENDED_FEATURE:
+            obs = np.append(obs, s_sentiments)
+            obs = np.append(obs, e_eps)
+            obs = np.append(obs, n_news_embedding)
 
         if self.action_one_hot:
             a = int(self.action == self.BUY)

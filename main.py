@@ -6,12 +6,15 @@ import inspect
 
 from environment import DirectReinforcement
 from processdata import prep_data
-from config import init_config
-from lib.visualization import BacktestingVisualization
+from lib.config import init_config
 
-def main():    
+from lib.visualization import BacktestingVisualization
+from lib.parser import parse_args
+
+def main():
+    args = parse_args()
     dat_config = prep_data(remake=False)
-    env = DirectReinforcement(dat_config, *init_config())
+    env = DirectReinforcement(dat_config, *init_config(args))
 
     from models.dqn import init_dqn
     render_file_location = init_dqn(env)

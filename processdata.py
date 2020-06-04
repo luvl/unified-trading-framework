@@ -18,7 +18,7 @@ import nltk
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 
-from config import DataConfig
+from lib.config import DataConfig
 from vnnlp.vietnamnlp import vn_tokenize
 
 def prep_data(remake: bool) -> DataConfig:
