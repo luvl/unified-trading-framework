@@ -23,11 +23,18 @@ scrapy crawl cafef-vnm-news -o vinamilk.json
 ## Start training
 
 ```bash
-python main.py
+ python main.py --with_extended_feature True 
 ```
 
 ## Deactive working process
 
 ```bash
 pkill -9 java
+```
+
+## Clean log and cache
+
+```bash
+chmod +x clean.sh 
+./clean.sh 
 ```

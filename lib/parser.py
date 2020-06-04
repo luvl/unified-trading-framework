@@ -1,4 +1,5 @@
 import argparse
+from lib.config import DefaultMacro
 
 def parse_args():
     """Parse arguments."""
@@ -12,7 +13,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Python implementation of Master thesis 'A unified Machine Learning / Deep Learning framework for security trading and predicting traders’ strategies'"
     )
-    parser.add_argument('--with_extended_feature', type=str_to_bool, default=False, help='add extended feature to observation')
+    parser.add_argument('--with_extended_feature', type=str_to_bool, default=DefaultMacro().WITH_EXTENDED_FEATURE, help='add extended feature to observation')
 
     args = parser.parse_args()
     return args
