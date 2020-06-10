@@ -81,6 +81,8 @@ class DirectReinforcement(gym.Env):
         self.test_starts_index = 0
         self.val_starts_index = 0
 
+        self.test_steps = len(np.load(self.test_data, allow_pickle=True)[:,0])
+
     def step(self, action):
         """
         Take action, move agent to next position and make a trade action
@@ -173,9 +175,11 @@ class DirectReinforcement(gym.Env):
                 self.eps_data = data[:,3]
             self.date = data[:,4]
             self.label = data[:,5]
-            self.test_position = np.random.randint(self.window + 1, self.data_size - self.test_steps - 1, self.test_epochs)
-            self.position = self.test_position[self.test_starts_index]
-            self.test_end_position = self.test_position + self.test_steps
+            # self.test_position = np.random.randint(self.window + 1, self.data_size - self.test_steps - 1, self.test_epochs)
+            # self.position = self.test_position[self.test_starts_index]
+            # self.test_end_position = self.test_position + self.test_steps
+            self.position = 0
+            self.test_end_position = self.position + self.test_steps
             self.test_starts_index += 1
             self.test_folder = self.folder + '/Test_' + str(self.test_starts_index)
             if not os.path.exists(self.test_folder):

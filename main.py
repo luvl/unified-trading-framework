@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import inspect
+import sys
 
 from environment import DirectReinforcement
 from processdata import prep_data
@@ -10,8 +11,10 @@ from lib.config import init_config
 
 from lib.visualization import BacktestingVisualization
 from lib.parser import parse_args
+from lib.logger import Logger
 
 def main():
+    sys.stdout = Logger()
     args = parse_args()
     dat_config = prep_data(remake=False)
     env = DirectReinforcement(dat_config, *init_config(args))

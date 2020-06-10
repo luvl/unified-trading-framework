@@ -20,10 +20,10 @@ class DefaultMacro(typing.NamedTuple):
     SELL_TRANSACTION_TAX: int = 0.001
 
 class TrainConfig(typing.NamedTuple):
-    epochs: int = 3 # 100
+    epochs: int = 100 # 100
     steps: int = 500 # 500 # max steps until end
     window_length: int = 100
-    mem_size: int = 10000 # 100000
+    mem_size: int = 10000
     nodes: int = 16
     folder: str = "log/" + str(epochs) + "_s:" + str(steps) + "_w:" + str(window_length) + "_" + date
     all_steps: int = epochs * steps
@@ -32,7 +32,7 @@ class TrainConfig(typing.NamedTuple):
 
 class TestConfig(typing.NamedTuple):
     test_epochs: int = 1
-    test_steps: int = 500
+    # test_steps: int = 500
 
 class ValConfig(typing.NamedTuple):
     val_epochs: int = 2
@@ -46,7 +46,7 @@ class EnvConfig(typing.NamedTuple):
     no_of_cluster: int = 2
     sentimental_feature: bool = True
     eps_feature: bool = True
-    embedding_feature_len: int = 437 # 16092 pca
+    embedding_feature_len: int = 582 # 437 # 16092 pca
     env_name: str = "Deep Direct Reinforcement Learning"
 
 class DataConfig(typing.NamedTuple):

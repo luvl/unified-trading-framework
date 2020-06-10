@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import json
+import re, os
 
 import urllib3
 import certifi
@@ -10,6 +11,9 @@ from bs4 import BeautifulSoup
 
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
+
+import pandas as pd 
+from googletrans import Translator
 
 def prep_news(filename: str, save_as_name: str) -> None:
     with open(filename) as f:
@@ -33,6 +37,7 @@ def prep_news(filename: str, save_as_name: str) -> None:
 
         try:
             text = news_div.text
+            text = re.sub(r"Các tập tin đính kèm(.*)\.pdf", "" , text)
         except:
             text = None
 
@@ -46,12 +51,6 @@ def prep_news(filename: str, save_as_name: str) -> None:
 
     with open(save_as_name, "w") as fp:
         json.dump(news_list, fp, indent=2, ensure_ascii=False)
-
-# prep_news('vinamilk.json', "news.json")
-
-
-import pandas as pd 
-from googletrans import Translator
 
 def eng_translate(filename: str, save_as_name: str) -> None:
     with open(filename, encoding='utf-8', errors='ignore') as json_data:
@@ -74,8 +73,6 @@ def eng_translate(filename: str, save_as_name: str) -> None:
 
     with open(save_as_name, "w") as fp:
         json.dump(news_json, fp, indent=2, ensure_ascii=False)
-
-# eng_translate('news.json', 'translated_news.json')
 
 def update_eng_translate(save_as_name: str) -> None:
     with open(save_as_name, encoding='utf-8', errors='ignore') as json_data:
@@ -104,10 +101,12 @@ def update_eng_translate(save_as_name: str) -> None:
     with open(save_as_name, "w") as fp:
         json.dump(news_json, fp, indent=2, ensure_ascii=False)    
 
-update_eng_translate('translated_news.json')
+if __name__ == "__main__":
+    if not os.path.exists('news.json'):
+        prep_news('vinamilk.json', "news.json")
 
-# from vnnlp.vietnamnlp import vn_tokenize
-# import os
-# os.chdir("./vnnlp") # move to /vnnlp folder to make use of model and jar file
-# vn_tokenize('vnnlp.csv')
-# os.chdir("..")
+    if os.path.exists('translated_news.json'):
+        update_eng_translate('translated_news.json') # continue to update the engtranslate since there is quote usage, better find a pretrained model to do this
+    else:
+        eng_translate('news.json', 'translated_news.json')
+

@@ -129,18 +129,6 @@ def prep_data(remake: bool) -> DataConfig:
 
         items = vnm_df['Datetime'].to_list()
 
-        # def upper_nearest(items, pivot):
-        #     maximum = pd.Timedelta(-100000, unit='d') # assume -100000 (100 years) is longest, if difference of timeseries is bigger, this will fail no doubt
-        #     for elem in items:
-        #         if pivot - elem <= pd.Timedelta(0):
-        #             curr = pivot - elem
-        #             maximum = max(maximum, curr)
-        #             if maximum == curr:
-        #                 ret = elem
-        #     if maximum == pd.Timedelta(-100000, unit='d'):
-        #         ret = None
-        #     return ret
-
         def overlapping(items: List, pivot: str):
             minimum = pd.Timedelta(100000, unit='d') # assume 100000 (100 years) is longest, if difference of timeseries is bigger, this will fail no doubt
             for elem in items:
