@@ -41,7 +41,7 @@ class ValConfig(typing.NamedTuple):
 class EnvConfig(typing.NamedTuple):
     limit_data: int = 1500000
     action_one_hot: bool = True
-    cost: float = 0.0001
+    cost: float = 0.002 # 0.0001
     window: int = 10
     no_of_cluster: int = 2
     sentimental_feature: bool = True

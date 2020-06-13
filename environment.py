@@ -268,14 +268,14 @@ class DirectReinforcement(gym.Env):
 
         pnls = "Profit and loss without trading position size: " + str(format(self.pnl, '.5f')) + "\n"
         if len(self.long_actions) != 0:
-            l_prec = str(format((self.long_prec / float(len(self.long_actions))), '.2f'))
+            l_prec = str(format((self.long_prec / float(len(self.long_actions))), '.4f'))
         else:
             l_prec = str(0)
         longs = str(len(self.long_actions))
         pnls += "Precision Long: " + l_prec + " ("+ str(self.long_prec) + " of " + longs + ")\n"
 
         if len(self.short_actions) != 0:
-            s_prec = str(format((self.short_prec / float(len(self.short_actions))), '.2f'))
+            s_prec = str(format((self.short_prec / float(len(self.short_actions))), '.4f'))
         else:
             s_prec = str(0)
 
@@ -410,10 +410,10 @@ class DirectReinforcement(gym.Env):
         Calculate if the actions taken by the agent were indeed correct
         """
         if self.prev_action == self.BUY: # buy / long
-            if c_val > pr_val or c_val == pr_val:
+            if c_val > pr_val: #  or c_val == pr_val
                 self.long_prec += 1
         elif self.prev_action == self.SELL:
-            if c_val < pr_val or c_val == pr_val:
+            if c_val < pr_val: # or c_val == pr_val
                 self.short_prec += 1
 
     def _trade(self, c_val):
